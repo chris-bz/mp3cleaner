@@ -12,27 +12,50 @@
 
 # FILE SETTINGS:
 # All fields in this section except 'text_editor' need to be filled.
-# Setting  up base_dir to be on the same partition as dest_dir will
-# speed things up considerably.
+# * setting  up base_dir to be on the same partition as dest_dir will
+#   speed things up considerably.
+# * do not add '/' at the end of each directory path or the program
+#   work
 
 # Folder with mp3s to clean
-base_dir         = '/mnt/files/download/music'
+# * best to have separate directory just for music files to avoid
+#   potentially costly file cleanup bugs that could have sneaked in
+base_dir         = '~/Downloads/Music'
 
 # Folder where cleaned files will be moved. Albums will be put in
 # subdirectories.
-dest_dir         = '/mnt/files/music'
+dest_dir         = '~/Music'
 
 # Path to file which will store last batch of tag changes. If missing,
 # the program will create one.
-tag_changes_file = '/mnt/files-ssd/doc/scripts/logs/tag-changes.yaml'
+tag_changes_file = '~/Documents
+
+# Console command to start your text editor of choice. If left empty,
+# all corrections will be done automatically.
+text_editor      = 'vim'
 
 # Name for directory where broken files will be moved. Subdirectory
 # of base_dir.
 broken_dir       = '.broken'
 
-# Console command to start your text editor of choice. If left empty,
-# all corrections will be done automatically.
-text_editor      = 'subl'
+# Name for directory where flac albums will be moved. Subdirectory
+# of base_dir.
+flac_dir         = '.flac'
+
+# Write tag data to ID3v1.1 tag
+# * remember to set at least one of the two below to True
+write_to_v1 = True
+
+# Write tag data to ID3v2
+# * independent of v1 settings, can write to single or both
+write_to_v2 = True
+
+# v2 tag version to write to
+# * you have two options:
+#     - version 2.4, written as (2,4,0)
+#     - version 2.3, written as (2,3,0)
+# * irrelevant if write_to_v2 is set to False
+tag_v2_version = (2,4,0)
 
 
 
@@ -164,7 +187,7 @@ chn_ost          = ' OST'
 chn_orig_sdtrack = ' OST'
 
 # Replace variants of '(cover)'
-chn_cover        = '(\1 cover)'
+chn_cover        = r'(\1 cover)'
 
 # Replace variants of '(some mix)', where 'some' can by any single
 # or multiple words preceding the word 'mix'.

@@ -21,7 +21,7 @@ import re
 import sys
 from glob       import glob
 from os         import (devnull, listdir, makedirs, path, popen, remove,
-                        renames, rmdir, system, walk)
+                        renames, rmdir, walk)
 from subprocess import DEVNULL, PIPE, run
 
 import eyed3
@@ -59,7 +59,7 @@ def eval_total_files():
     n = 0
 
     for (root, dirs, files) in walk(s.base_dir):
-        if not s.broken_dir in root:
+        if not s.broken_dir in root and not s.flac_dir in root:
             n += len(files)
 
     assert n, (f'No mp3 files found in {s.base_dir}. Add something (or '
@@ -89,7 +89,7 @@ def tag_to_file(filepath, category='single', **kwargs):
         tag = tag.strip().lower()
         return tag
 
-    assert all(category == 'album', not kwargs), (
+    if category == 'album' and not kwargs: (
         'For "album" category, you also need to pass album_artist keyword '
         'argument like so:\n tag_to_file(path/to/file, "album", '
         'album_artist="some string". Exiting...')
@@ -110,7 +110,7 @@ def tag_to_file(filepath, category='single', **kwargs):
     else:
         try:
             track_num = re.search('\d\d?', file[:5])[0]
-        except IndexError:
+        except (IndexError, TypeError):
             track_num = ''
 
     if re.search(s.feat_rgx, artist):
@@ -227,9 +227,11 @@ def rename_img(dir_path, filename, replace_with):
 # * prepares files and directories for operations
 print('MP3 Cleaner started, reading files...')
 
-assert all([s.base_dir, s.dest_dir, s.tag_changes_file, s.feat_rgx]), (
-    'Please fill all the "file settings" fields in settings.py before '
-    'running this program')
+if not all([s.base_dir, s.dest_dir, s.tag_changes_file, s.feat_rgx]) or \
+   not any([s.write_to_v1, s.write_to_v2]):
+    print('Please fill all the "file settings" fields in settings.py before '
+          'running this program')
+    sys.exit()
 
 if s.app_blacklist:
     for app in s.app_blacklist:
@@ -245,12 +247,31 @@ with open(s.tag_changes_file, 'w') as f:
     f.write('')
 
 
-# Test/repair all mp3 files, move broken
+# Move flac albums to flac_dir
+dirs = [d for d in listdir(s.base_dir) if d != s.broken_dir and
+                                          d != s.flac_dir]
+for d in dirs:
+    dir_path = f'{s.base_dir}/{d}'
+    flac_files = glob(f'{dir_path}/**/*.flac', recursive=True)
+    if flac_files:
+        print(f'"{d}" directory contains flac files, moving it to '
+              f'"{s.flac_dir}" directory')
+        renames(dir_path, f'{s.base_dir}/{s.flac_dir}/{d}')
+
+
+# Test/repair all mp3 files, move broken, delete junk files
 base_dir_slashes = s.base_dir.count('/')
 
-all_files = glob(f'{s.base_dir}/**', recursive=True) 
-mp3_files = [a for a in all_files if a[-4:] == '.mp3'
-                                 and not s.broken_dir in a]
+all_items = glob(f'{s.base_dir}/**/*', recursive=True) 
+all_files = [f for f in all_items if path.isfile(f)]
+mp3_files = [a for a in all_files if a[-4:] == '.mp3']
+jnk_files = [j for j in all_files if j[-4:] != '.jpeg' and
+                                     j[-4:] != '.jpg' and
+                                     j[-4:] != '.mp3' and
+                                     j[-4:] != '.png']
+
+for jnk_file in jnk_files:
+    remove(jnk_file)
 
 if s.enable_mp3val:
     print('mp3val enabled, fixing errors in files...')
@@ -283,7 +304,8 @@ files            = [name for name in listdir(s.base_dir)
                     if not path.isdir(path.join(s.base_dir, name))]
 dirs             = [name for name in listdir(s.base_dir)
                     if path.isdir(path.join(s.base_dir, name))
-                    and name != s.broken_dir]
+                    and name != s.broken_dir
+                    and name != s.flac_dir]
 
 
 # Rename mp3 subdirs to enumerated CD dirs, move relevant imgs from
@@ -293,31 +315,33 @@ for d in dirs:
                if path.isdir(path.join(f'{s.base_dir}/{d}', name))]
 
     cd_num = 0
-    for s in subdirs:
-        s_path        = f'{s.base_dir}/{d}/{s}'
-        s_parent_path = f'{s.base_dir}/{d}'
-        subdir_mp3s   = glob(f'{s_path}/*.mp3')
-        subdir_imgs   = glob(f'{s_path}/*.jpg') + glob(f'{s_path}/*.png')
+    for sub in subdirs:
+        sub_path        = f'{s.base_dir}/{d}/{sub}'
+        sub_parent_path = f'{s.base_dir}/{d}'
+        subdir_mp3s   = glob(f'{sub_path}/*.mp3')
+        subdir_imgs   = glob(f'{sub_path}/*.jpg') + glob(f'{sub_path}/*.png')
         
         if subdir_mp3s:
             cd_num += 1
-            last_slash = s_path.rfind('/')
-            cdp = f'{s_path[:last_slash]} {s_path[last_slash+1:]}.CD{cd_num}'
-            renames(s_path, cdp)
-            dir_content = glob(f'{s_parent_path}/*')
+            last_slash = sub_path.rfind('/')
+            cdp = f'{sub_path[:last_slash]} {sub_path[last_slash+1:]}.CD{cd_num}'
+            renames(sub_path, cdp)
+            dir_content = glob(f'{sub_parent_path}/*')
             if not dir_content:
-                rmdir(s_parent_path)
+                rmdir(sub_parent_path)
 
         elif subdir_imgs:
             for i in subdir_imgs:
                 filename = i.split('/')[-1]
-                renames(i, f'{s_parent_path}/{filename}')
+                renames(i, f'{sub_parent_path}/{filename}')
 
         elif not subdir_mp3s and not subdir_imgs:
-            rmdir(s_path)
+            rmdir(sub_path)
 
 dirs = [name for name in listdir(s.base_dir)
-        if path.isdir(path.join(s.base_dir, name)) and name != s.broken_dir]
+        if path.isdir(path.join(s.base_dir, name))
+        and name != s.broken_dir
+        and name != s.flac_dir]
 
 
 # Tags to yaml file, directory level operations
@@ -329,15 +353,6 @@ for file in files:
 for d in dirs:
     dir_path  = f'{s.base_dir}/{d}'
     dir_files = listdir(f'{dir_path}')
-
-    # Delete junk
-    ext_whitelist = ['flac', 'jpg', 'jpeg', 'mp3', 'ogg', 'png']
-    junk_files    = [f for f in dir_files
-                     if f.split('.')[-1] not in ext_whitelist]
-
-    for junk_file in junk_files:
-        remove(f'{dir_path}/{junk_file}')
-        dir_files.remove(junk_file)
 
     mp3_files = [f for f in dir_files if f.split('.')[-1] == 'mp3']
     if not mp3_files:
@@ -394,30 +409,33 @@ for d in dirs:
         file_size = path.getsize(f_path)
         if file_size < s.img_min_size:
             print(f' {f} file size is too small, deleting...')
-            run(['rm', f_path], stdout=DEVNULL, stderr=DEVNULL)
+            remove(f_path)
             continue
 
         if s.img_conv_compr:
-            c_rate = run(['identify', '-format', '%Q', f_path],
-                         stdout=PIPE).stdout
-            c_rate = int(c_rate)
-
-            if '.jpg' in f and c_rate == 100:
-                run(['jpegoptim', f'-m{s.jpg_compr_lvl}', f_path],
+            if '.jpg' in f:
+                c_rate = run(['identify', '-format', '%Q', f_path],
+                             stdout=PIPE).stdout
+                c_rate = int(c_rate)
+                if c_rate == 100:
+                    run(['jpegoptim', f'-m{s.jpg_compr_lvl}', f_path],
                     stdout=DEVNULL)
-                print(' jpg file compressed')
 
             if '.png' in f:
                 run(['mogrify', '-format', 'jpg', '-quality', '100', f_path],
                     stdout=DEVNULL)
-                new_filename = re.sub('\.png', '.jpg', f)
+                remove(f_path)
+                f = re.sub('\.png', '.jpg', f)
+                f_path = f'{dir_path}/{f}'
+
                 run(['jpegoptim',
                      f'-m{s.jpg_compr_lvl}',
-                     f'{dir_path}/{new_filename}'],
+                     f_path],
                     stdout=DEVNULL)
 
-        if len(dir_imgs) == 1 and f != 'front.jpg' and f != 'front.png':
+        if len(dir_imgs) == 1 and f != 'front.jpg':
             rename_img(dir_path, f, 'front')
+            front_exists = True
 
         else:
             if not front_exists and ('front' in f or 'folder' in f):
@@ -429,9 +447,9 @@ for d in dirs:
                 back_exists = True
 
             else:
-                img_iter+=1
-                img_iter_final = (img_iter if len(str(img_iter)) > 1
-                                  else f'0{img_iter}')
+                img_iter      +=1
+                img_iter_final = (f'0{img_iter}' if len(str(img_iter)) == 1
+                                  else img_iter)
                 rename_img(dir_path, f, f"album-art-{img_iter_final}")
 
     dir_jpgs = [f'{dir_path}/{name}' for name in listdir(f'{dir_path}')
@@ -503,7 +521,7 @@ if s.chn_edit:
     regexes[' ?[\(\[] ?[Ee]dit ?[\)\]]']                = s.chn_edit
 
 if s.chn_extended:
-    regexes[' ?[\[\(]? ?[Ee]xtended ?[\]\)]?']          = s.chn_extended
+    regexes[' ?[\[\(] ?[Ee]xtended ?[\]\)]']            = s.chn_extended
 
 if s.chn_extended_mix:
     regexes[' ?[\[\(]? ?[Ee]xtended [Mm]ix ?[\]\)]?']   = s.chn_extended_mix
@@ -611,8 +629,10 @@ for t in tag_stripes:
         sys.exit()
 
     with NoStdErr():
-        parsed.tag.save(filename=src_path, version=(2,4,0))
-        parsed.tag.save(filename=src_path, version=(1,1,0))
+        if s.write_to_v1:
+            parsed.tag.save(filename=src_path, version=(1,1,0))
+        if s.write_to_v2:
+            parsed.tag.save(filename=src_path, version=s.tag_v2_version)
 
     report_current(filename)
 
@@ -648,12 +668,11 @@ for t in tag_stripes:
 
 # Remove remaining empty folders
 dirs = [name for name in listdir(s.base_dir)
-        if path.isdir(path.join(s.base_dir, name)) and name != s.broken_dir]
+        if path.isdir(path.join(s.base_dir, name))]
 
 for d in dirs:
     dir_path  = f'{s.base_dir}/{d}'
-    dir_files = listdir(dir_path)
-    mp3_files = [f for f in dir_files if '.mp3' in f]
+    dir_items = listdir(dir_path)
 
-    if not mp3_files:
-        run(['rm', '-r', dir_path])
+    if not dir_items:
+        rmdir(dir_path)
