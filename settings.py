@@ -10,7 +10,7 @@
 
 
 
-# FILE SETTINGS:
+# FILE/DIRECTORY SETTINGS:
 # All fields in this section except 'text_editor' need to be filled.
 # * setting  up base_dir to be on the same partition as dest_dir will
 #   speed things up considerably.
@@ -28,7 +28,7 @@ dest_dir         = '~/Music'
 
 # Path to file which will store last batch of tag changes. If missing,
 # the program will create one.
-tag_changes_file = '~/Documents
+tag_changes_file = '~/Documents'
 
 # Console command to start your text editor of choice. If left empty,
 # all corrections will be done automatically.
@@ -38,9 +38,9 @@ text_editor      = 'vim'
 # of base_dir.
 broken_dir       = '.broken'
 
-# Name for directory where flac albums will be moved. Subdirectory
+# Name for directory where non-mp3 albums will be moved. Subdirectory
 # of base_dir.
-flac_dir         = '.flac'
+notmp3_dir         = '.notmp3'
 
 # Write tag data to ID3v1.1 tag
 # * remember to set at least one of the two below to True

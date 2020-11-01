@@ -59,12 +59,14 @@ def eval_total_files():
     n = 0
 
     for (root, dirs, files) in walk(s.base_dir):
-        if not s.broken_dir in root and not s.flac_dir in root:
+        if not s.broken_dir in root and not s.notmp3_dir in root:
             n += len(files)
 
-    assert n, (f'No mp3 files found in {s.base_dir}. Add something (or '
-                'change the path in program settings) and then start'
-                'the program. Exiting...')
+    if not n:
+        raise ValueError(
+          f'No mp3 files found in {s.base_dir}. Add something '
+          ' (or change the path in program settings) and then start '
+          'the program. Exiting...')
     return n
 
 
@@ -239,24 +241,35 @@ if s.app_blacklist:
         check = check.read().strip()
         check = int(check)
 
-        assert not check, (f'Please close {app} first before running '
-                            'the program. Exiting...')
+        if check:
+            raise ValueError(
+              f'Please close {app} first before running the program. '
+              'Exiting...')
 
 makedirs(f'{s.base_dir}/{s.broken_dir}', exist_ok=True)
 with open(s.tag_changes_file, 'w') as f:
     f.write('')
 
 
-# Move flac albums to flac_dir
+# Move non-mp3 albums to notmp3_dir
 dirs = [d for d in listdir(s.base_dir) if d != s.broken_dir and
-                                          d != s.flac_dir]
+                                          d != s.notmp3_dir]
+
+
+def glob_notmp3(d):
+    notmp3_files = []
+    notmp3_formats = ['aac', 'aiff', 'alac', 'ape', 'flac', 'mpc', 'ogg', 'opus', 'wav', 'wma']  
+    for ext in notmp3_formats:
+        notmp3_files.extend(glob(f'{s.base_dir}/{d}/**/*.{ext}', recursive=True))
+    return notmp3_files
+
 for d in dirs:
     dir_path = f'{s.base_dir}/{d}'
-    flac_files = glob(f'{dir_path}/**/*.flac', recursive=True)
-    if flac_files:
+    notmp3_files = glob_notmp3(d)
+    if notmp3_files:
         print(f'"{d}" directory contains flac files, moving it to '
-              f'"{s.flac_dir}" directory')
-        renames(dir_path, f'{s.base_dir}/{s.flac_dir}/{d}')
+              f'"{s.notmp3_dir}" directory')
+        renames(dir_path, f'{s.base_dir}/{s.notmp3_dir}/{d}')
 
 
 # Test/repair all mp3 files, move broken, delete junk files
@@ -305,7 +318,7 @@ files            = [name for name in listdir(s.base_dir)
 dirs             = [name for name in listdir(s.base_dir)
                     if path.isdir(path.join(s.base_dir, name))
                     and name != s.broken_dir
-                    and name != s.flac_dir]
+                    and name != s.notmp3_dir]
 
 
 # Rename mp3 subdirs to enumerated CD dirs, move relevant imgs from
@@ -341,7 +354,7 @@ for d in dirs:
 dirs = [name for name in listdir(s.base_dir)
         if path.isdir(path.join(s.base_dir, name))
         and name != s.broken_dir
-        and name != s.flac_dir]
+        and name != s.notmp3_dir]
 
 
 # Tags to yaml file, directory level operations
