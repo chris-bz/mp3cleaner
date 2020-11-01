@@ -4,6 +4,7 @@ MP3 Cleaner is a program that automates a boring task of editing mp3 tags in wha
 
 <br>
 ## How does it work?
+
 1. The user sets all preferences in the settings.py file. It can take a while, but needs to be performed just once.
 2. The program loads those settings on startup and starts scanning for loose tracks and album folders.
 2. It extracts all tag data from mp3 files found, corrects them and saves this corrected tag information to a yaml file.
@@ -47,6 +48,7 @@ Below is a list of (most of the) tasks the program performs. Many of those you c
 
 <br>
 ## Requirements
+
 1. **Linux**
 MP3 Cleaner was not tested on Windows. All file and directory operations are done through Python tools, and not Linux commands. Therefore, it is possible that the cleaner will run bug-free on Windows with just minimum dependencies installed. But then you won't have proper capitalization, file repairing and image handling.
 2. [Python](https://www.python.org/downloads/)
@@ -75,6 +77,7 @@ On Ubuntu/Mint/Debian etc. you can install both IM and jpegoptim with one comman
 
 <br>
 ### No need for...
+
 1. YAML
 
 MP3 Cleaner uses a YAML file as intermediary. All tags are read, pre-corrected and saved to it, and after user corrections (or automatically, if user corrections are disabled), its being read to save its content to mp3 tags.
@@ -91,6 +94,7 @@ MP3 Cleaner uses Stephen Jung's NLP Chicago Manual of Style instructions for wor
 
 <br>
 ## How to use it?
+
 1. download both python files (or git clone entire repository), put them both in one directory
 2. open the file in any text/code editor and **edit all the program settings**. you need to tell the program:
 - where it's supposed to look for mp3 files
